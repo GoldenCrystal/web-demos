@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Binary Search as a Tree</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/4.12.2/d3.min.js"></script>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        svg#main {
+            width: 100%;
+            overflow: visible;
+        }
+
+        line.link {
+            stroke: black;
+            stroke-width: 2px;
+        }
+
+        g.node>circle {
+            stroke: black;
+            stroke-width: 2px;
+            fill: white;
+        }
+
+        g.node>text {
+            text-anchor: middle;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 12px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Binary Search Tree</h1>
+    <p>This visualization shows how a sorted array can be projected as a binary search tree.</p>
+    <svg id="main"></svg>
+    <script>
+        "use strict";
+
+        !function () {
+            const nodeMargin = 4;
+            const nodeRadius = 16;
+
+            const nodeSize = 2 * (nodeMargin + nodeRadius);
+            const nodeOffset = 0.5 + nodeSize / 2;
+
+            function getEnclosingPowerOfTwo(n) {
+                if (n < 0) throw Error("Enclosing power of two can only be measured for positive numbers.");
+
+                var power = 0;
+                var value = 1;
+                while (n > value) {
+                    power++
+                    value <<= 1;
+                }
+
+                return power;
+            }
+
+            function buildTree(nodeCount) {
+                let tree = {
+                    nodes: [],
+                    links: [],
+                    depth: 0,
+                    maxDepth: getEnclosingPowerOfTwo(nodeCount) - 1
+                };
+
+                for (let i = 0; i < nodeCount; i++) {
+                    tree.nodes.push({ value: i + 1, depth: 0, depthIndex: i, nodeMask: 0, previousDepthIndex: i });
+                }
+
+                return tree;
+            }
+
+            let tree = buildTree(46);
+
+            let renderDepth = 0;
+            let treeWidth = nodeSize * tree.nodes.length;
+            let previousTreeWidth = treeWidth;
+            let treeFinalWidth = (1 << tree.maxDepth) * nodeSize;
+
+            function getNormalizedNodeX(node, treeWidth) {
+                const skippedBitCount = tree.maxDepth - node.depth
+                const depthNodeCount = 1 << node.depth;
+
+                return (((node.nodeMask >> skippedBitCount) << 1) + 1) * treeWidth / (depthNodeCount << 1);
+            }
+
+            function getSequentialNodeX(index) { return nodeSize * index + nodeOffset; }
+
+            function internalGetNodeX(node, treeWidth) {
+                // Rows can be rendered in two modes, for rows containing 2^r nodes, or rows containing more.
+                // Apart in the final steps, the last row will always contain more than 2^r nodes.
+                // In the final steps, the last row may contain less nodes than its theorical capacity (if the number of nodes is not 2^N - 1)
+                // In order to avoid weird shifting of nodes during the last step, the last row should be rendered as if it did contain 2^r nodes.
+                return node.depth < renderDepth || node.depth == tree.maxDepth ?
+                    getNormalizedNodeX(node, treeWidth) :
+                    getSequentialNodeX(node.depthIndex);
+            }
+
+            function getNodeX(node) { return internalGetNodeX(node, treeWidth); }
+
+            function getNodeY(node) { return nodeSize * node.depth + nodeOffset; }
+
+            function getNodePosition(node) {
+                return {
+                    x: getNodeX(node),
+                    y: getNodeY(node)
+                }
+            }
+
+            function getLinkX1BeforeResize(link) { return internalGetNodeX(tree.nodes[link.parent], previousTreeWidth); }
+
+            function getLinkX2BeforeResize(link) {
+                const node = tree.nodes[link.child];
+                // Same as for internalGetNodeX, make an exception for the final row of nodes…
+                return node.depth == tree.maxDepth ?
+                    getNormalizedNodeX(node, treeWidth) :
+                    getSequentialNodeX(node.depthIndex);
+            }
+
+            function getLinkX1(link) { return getNodeX(tree.nodes[link.parent]); }
+            function getLinkY1(link) { return getNodeY(tree.nodes[link.parent]); }
+
+            function getLinkX2(link) { return getNodeX(tree.nodes[link.child]); }
+            function getLinkY2(link) { return getNodeY(tree.nodes[link.child]); }
+
+            function getNodeTransformVerticalOnly(node) {
+                let transforms = this.transform.baseVal;
+
+                if (transforms.numberOfItems === 1) {
+                    let item = transforms.getItem(0);
+
+                    if (item.type === SVGTransform.SVG_TRANSFORM_TRANSLATE) {
+                        return "translate(" + item.matrix.e + ", " + getNodeY(node) + ")";
+                    }
+                }
+                return getNodeTransform(node);
+            }
+
+            function getNodeTransform(node) {
+                var coordinates = getNodePosition(node);
+
+                return "translate(" + coordinates.x + ", " + coordinates.y + ")";
+            }
+
+            function getNodeTransform(node) {
+                var coordinates = getNodePosition(node);
+
+                return "translate(" + coordinates.x + ", " + coordinates.y + ")";
+            }
+
+            let svg = d3.select("svg#main");
+
+            let treeLayer = svg.append("g")
+                .attr("class", "tree");
+
+            let linksLayer = treeLayer.append("g")
+                .attr("class", "links");
+
+            let nodesLayer = treeLayer.append("g")
+                .attr("class", "nodes");
+
+            function renderTree(duration) {
+                var transition1 = null;
+                var transition2 = null;
+
+                if (duration > 0) {
+                    transition1 = d3.transition()
+                        .duration(0.5 * duration)
+                        .ease(d3.easeSinInOut);
+                    transition2 = transition1
+                        .transition()
+                        .duration(0.5 * duration)
+                        .ease(d3.easeSinInOut);
+                }
+
+                // Adjust viewbox
+
+                svg.transition(transition2)
+                    .attr("viewBox", "0 0 " + (treeWidth) + " " + (2 + tree.maxDepth * nodeSize));
+
+                // Render links
+
+                let links = linksLayer.selectAll("line.link")
+                    .data(tree.links);
+
+                let newLinks = links.enter()
+                    .append("line")
+                    .attr("class", "link")
+                    .attr("x1", getLinkX1BeforeResize)
+                    .attr("y1", getLinkY1)
+                    .attr("x2", getLinkX1BeforeResize)
+                    .attr("y2", getLinkY1);
+
+                newLinks.transition(transition1)
+                    .attr("y1", getLinkY1)
+                    .attr("x2", getLinkX2BeforeResize)
+                    .attr("y2", getLinkY2);
+
+                links = newLinks.merge(links);
+
+                links.transition(transition2)
+                    .attr("x1", getLinkX1)
+                    .attr("y1", getLinkY1)
+                    .attr("x2", getLinkX2)
+                    .attr("y2", getLinkY2);
+
+                // Render nodes
+
+                let nodes = nodesLayer.selectAll("g.node")
+                    .data(tree.nodes);
+
+                nodes.exit()
+                    .remove();
+
+                let newNodes = nodes.enter()
+                    .append("g")
+                    .attr("class", "node")
+                    .attr("transform", getNodeTransform);
+
+                newNodes.append("circle")
+                    .attr("cx", 0)
+                    .attr("cy", 0)
+                    .attr("r", nodeRadius);
+
+                newNodes.append("text")
+                    .attr("dy", "0.3em")
+                    .text((node) => node.value);
+
+                nodes = newNodes.merge(nodes);
+
+                nodes.transition(transition1)
+                    .attr("transform", getNodeTransformVerticalOnly);
+
+                nodes.transition(transition2)
+                    .attr("transform", getNodeTransform);
+            }
+
+            renderTree(0);
+
+            let ranges = [{ min: 0, max: tree.nodes.length - 1, parent: null, nodeMask: 0 }];
+
+            let interval = window.setInterval(function () {
+                if (renderDepth > tree.maxDepth || ranges === null) {
+                    window.clearInterval(interval);
+                }
+
+                if (ranges === null) return;
+
+                const depthMask = 1 << (tree.maxDepth - ++renderDepth);
+
+                ranges = ranges.map(r => {
+                    if (r.max - r.min < 0) return null;
+
+                    let med = Math.trunc((r.min + r.max) / 2);
+
+                    if (r.parent !== null) {
+                        tree.links.push({ parent: r.parent, child: med });
+                    }
+
+                    if (r.max - r.min < 1) return null;
+
+                    return [{ min: r.min, max: med - 1, parent: med, nodeMask: r.nodeMask }, { min: med + 1, max: r.max, parent: med, nodeMask: r.nodeMask | depthMask }];
+                }).reduce((prev, next) => next !== null ? prev !== null ? prev.concat(next) : next : prev);
+
+                previousTreeWidth = treeWidth;
+
+                if (ranges != null) {
+                    let depthNodeCount = 0;
+
+                    for (let i = 0; i < ranges.length; i++) {
+                        let range = ranges[i];
+
+                        for (let j = range.min; j <= range.max; j++) {
+                            let node = tree.nodes[j];
+
+                            node.depth = renderDepth;
+                            node.previousDepthIndex = node.depthIndex;
+                            node.depthIndex = depthNodeCount++;
+                            node.nodeMask = range.nodeMask;
+                        }
+                    }
+
+                    tree.depth++;
+
+                    treeWidth = renderDepth < tree.maxDepth ? depthNodeCount * nodeSize : treeFinalWidth;
+                } else {
+                    treeWidth = treeFinalWidth;
+                }
+
+                renderTree(2000);
+            }, 2000);
+        }();
+    </script>
+</body>
+
+</html>
