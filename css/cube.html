@@ -234,6 +234,54 @@
         #🎲:checked~.🎦>.🎲>.😶.⬇️ {
             background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="-150 -150 300 300"><circle r="30" cx="-100" cy="-100" /><circle r="30" cx="-100" /><circle r="30" cx="-100" cy="100" /><circle r="30" cx="100" cy="-100" /><circle r="30" cx="100" /><circle r="30" cx="100" cy="100" /></svg>');
         }
+
+        @media screen and (max-width: 481px) {
+            .🎦 {
+                width: 80vw;
+                height: 80vw;
+                perspective: 80vw;
+                perspective-origin: 40vw 40vw;
+            }
+            
+            .🎦>.🎲>.😶 {
+                padding-top: 11.7vw;
+                font-size: 13.3vw;
+            }
+
+            .💩 {
+                padding-top: 26.7vw;
+                font-size: 13.3vw;
+            }
+        }
+        @media screen and (max-height: 500px),
+        screen and (max-width: 633px) {
+            .🎦 {
+                display: block;
+                position: unset;
+                left: unset;
+                right: unset;
+            }
+        }
+
+        @media screen and (max-height: 500px),
+        screen and (max-width: 374px) {
+            .🎦 {
+                width: 300px;
+                height: 300px;
+                perspective: 300px;
+                perspective-origin: 150px 150px;
+            }
+            
+            .🎦>.🎲>.😶 {
+                padding-top: 40px;
+                font-size: 50px;
+            }
+
+            .💩 {
+                padding-top: 100px;
+                font-size: 50px;
+            }
+        }
     </style>
 </head>
 
